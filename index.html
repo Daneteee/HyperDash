@@ -1,412 +1,412 @@
 <html><head><base href="." />
-    <style>
-      body {
-        margin: 0;
-        overflow: hidden;
-        background: #1a1a1a;
-        font-family: Arial, sans-serif;
-      }
-      
-      #gameCanvas {
-        width: 100vw;
-        height: 100vh;
-      }
-      
-      #score {
-        position: fixed;
-        top: 20px;
-        left: 20px;
-        color: white;
-        font-size: 24px;
-        z-index: 100;
-      }
-    
-      #playerCount {
-        position: fixed;
-        top: 50px;
-        left: 20px;
-        color: white;
-        font-size: 18px;
-        z-index: 100;
-      }
-    
-      .controls-help {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        color: white;
-        font-size: 16px;
-        text-align: right;
-        z-index: 100;
-      }
-    
-      #dashCooldown {
-        position: fixed;
-        right: 20px;
-        bottom: 20px;
-        width: 100px;
-        height: 8px;
-        background: #333;
-        border: 1px solid #666;
-        z-index: 100;
-        border-radius: 4px;
-      }
-    
-      #dashCooldownFill {
-        position: absolute;
-        left: 0;
-        height: 100%;
-        background: #ffffff;
-        transition: width 0.1s linear;
-        border-radius: 4px;
-      }
-    </style>
-    </head>
-    <body>
-    <canvas id="gameCanvas"></canvas>
-    <div id="score">Score: 0</div>
-    <div id="playerCount">Players Online: 1</div>
-    <div class="controls-help">
-      Controls:<br>
-      WASD - Move<br>
-      Arrow Keys - Attack in direction<br>
-      SPACE - Dash
-    </div>
-    <div id="dashCooldown">
-      <div id="dashCooldownFill"></div>
-    </div>
-    
-    <script>
-    const GRID_SIZE = 50;
-    const MAP_WIDTH = 3000;
-    const MAP_HEIGHT = 3000;
-    const WS_URL = 'ws://localhost:3000';
-    
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    const scoreElement = document.getElementById('score');
-    const playerCountElement = document.getElementById('playerCount');
-    const dashCooldownFill = document.getElementById('dashCooldownFill');
-    
-    let camera = {
-      x: 0,
-      y: 0
-    };
-    
-    function getRandomSpawnPosition() {
-      return {
-        x: Math.random() * (MAP_WIDTH - 100) + 50,
-        y: Math.random() * (MAP_HEIGHT - 100) + 50
-      };
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #1a1a1a;
+      font-family: Arial, sans-serif;
     }
     
-    let ws;
-    try {
-      ws = new WebSocket(WS_URL);
+    #gameCanvas {
+      width: 100vw;
+      height: 100vh;
+    }
+    
+    #score {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      color: white;
+      font-size: 24px;
+      z-index: 100;
+    }
+  
+    #playerCount {
+      position: fixed;
+      top: 50px;
+      left: 20px;
+      color: white;
+      font-size: 18px;
+      z-index: 100;
+    }
+  
+    .controls-help {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      color: white;
+      font-size: 16px;
+      text-align: right;
+      z-index: 100;
+    }
+  
+    #dashCooldown {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      width: 100px;
+      height: 8px;
+      background: #333;
+      border: 1px solid #666;
+      z-index: 100;
+      border-radius: 4px;
+    }
+  
+    #dashCooldownFill {
+      position: absolute;
+      left: 0;
+      height: 100%;
+      background: #ffffff;
+      transition: width 0.1s linear;
+      border-radius: 4px;
+    }
+  </style>
+  </head>
+  <body>
+  <canvas id="gameCanvas"></canvas>
+  <div id="score">Score: 0</div>
+  <div id="playerCount">Players Online: 1</div>
+  <div class="controls-help">
+    Controls:<br>
+    WASD - Move<br>
+    Arrow Keys - Attack in direction<br>
+    SPACE - Dash
+  </div>
+  <div id="dashCooldown">
+    <div id="dashCooldownFill"></div>
+  </div>
+  
+  <script>
+  const GRID_SIZE = 50;
+  const MAP_WIDTH = 3000;
+  const MAP_HEIGHT = 3000;
+  const WS_URL = 'ws://localhost:3000';
+  
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const scoreElement = document.getElementById('score');
+  const playerCountElement = document.getElementById('playerCount');
+  const dashCooldownFill = document.getElementById('dashCooldownFill');
+  
+  let camera = {
+    x: 0,
+    y: 0
+  };
+  
+  function getRandomSpawnPosition() {
+    return {
+      x: Math.random() * (MAP_WIDTH - 100) + 50,
+      y: Math.random() * (MAP_HEIGHT - 100) + 50
+    };
+  }
+  
+  let ws;
+  try {
+    ws = new WebSocket(WS_URL);
+    
+    ws.onopen = () => {
+      console.log('Connected to server');
+      const spawnPos = getRandomSpawnPosition();
+      gameState.player.x = spawnPos.x;
+      gameState.player.y = spawnPos.y;
+      camera.x = spawnPos.x - canvas.width/2;
+      camera.y = spawnPos.y - canvas.height/2;
       
-      ws.onopen = () => {
-        console.log('Connected to server');
-        const spawnPos = getRandomSpawnPosition();
-        gameState.player.x = spawnPos.x;
-        gameState.player.y = spawnPos.y;
-        camera.x = spawnPos.x - canvas.width/2;
-        camera.y = spawnPos.y - canvas.height/2;
-        
+      ws.send(JSON.stringify({
+        type: 'join',
+        player: {
+          id: playerId,
+          x: gameState.player.x,
+          y: gameState.player.y
+        }
+      }));
+    };
+  
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      switch(data.type) {
+        case 'gameState':
+          otherPlayers = data.players.filter(p => p.id !== playerId);
+          playerCountElement.textContent = "Players Online: ${data.players.length}";
+          break;
+        case 'playerJoined':
+          console.log("Player ${data.playerId} joined");
+          break;
+        case 'playerLeft':
+          console.log("Player ${data.playerId} left");
+          otherPlayers = otherPlayers.filter(p => p.id !== data.playerId);
+          break;
+        case 'playerUpdate':
+          if(data.player.id !== playerId) {
+            const playerIndex = otherPlayers.findIndex(p => p.id === data.player.id);
+            if(playerIndex !== -1) {
+              otherPlayers[playerIndex] = data.player;
+            } else {
+              otherPlayers.push(data.player);
+            }
+          }
+          break;
+      }
+    };
+  
+    ws.onclose = () => {
+      console.log('Disconnected from server');
+      playerCountElement.textContent = 'Offline Mode';
+    };
+  } catch (e) {
+    console.log('WebSocket connection failed, running in single player mode');
+  }
+  
+  function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+  
+  const playerId = Math.random().toString(36).substr(2, 9);
+  let otherPlayers = [];
+  
+  const spawnPos = getRandomSpawnPosition();
+  const gameState = {
+    player: {
+      id: playerId,
+      x: spawnPos.x,
+      y: spawnPos.y,
+      radius: 20,
+      speed: 3,
+      dashSpeed: 15,
+      isDashing: false,
+      dashCooldown: 2000,
+      dashCooldownTimer: 0,
+      kills: 0,
+      attackAngle: 0,
+      isAttacking: false,
+      attackCooldown: 750,
+      attackCooldownTimer: 0
+    },
+    score: 0
+  };
+  
+  camera.x = spawnPos.x - canvas.width/2;
+  camera.y = spawnPos.y - canvas.height/2;
+  
+  function drawGrid() {
+    const startX = Math.floor(camera.x / GRID_SIZE) * GRID_SIZE;
+    const startY = Math.floor(camera.y / GRID_SIZE) * GRID_SIZE;
+    const endX = startX + canvas.width + GRID_SIZE;
+    const endY = startY + canvas.height + GRID_SIZE;
+    
+    ctx.strokeStyle = '#333333';
+    ctx.lineWidth = 1;
+    
+    for (let x = startX; x < endX; x += GRID_SIZE) {
+      ctx.beginPath();
+      ctx.moveTo(x - camera.x, 0);
+      ctx.lineTo(x - camera.x, canvas.height);
+      ctx.stroke();
+    }
+    
+    for (let y = startY; y < endY; y += GRID_SIZE) {
+      ctx.beginPath();
+      ctx.moveTo(0, y - camera.y);
+      ctx.lineTo(canvas.width, y - camera.y);
+      ctx.stroke();
+    }
+  
+    ctx.strokeStyle = '#ff0000';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(-camera.x, -camera.y, MAP_WIDTH, MAP_HEIGHT);
+  }
+  
+  function drawAttack() {
+    if (gameState.player.isAttacking) {
+      ctx.beginPath();
+      ctx.moveTo(gameState.player.x - camera.x, gameState.player.y - camera.y);
+      ctx.arc(gameState.player.x - camera.x, gameState.player.y - camera.y, gameState.player.radius + 30,
+        gameState.player.attackAngle - Math.PI/4,
+        gameState.player.attackAngle + Math.PI/4);
+      ctx.lineTo(gameState.player.x - camera.x, gameState.player.y - camera.y);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+      ctx.fill();
+    }
+  } 
+  
+  function updateCamera() {
+    const targetX = gameState.player.x - canvas.width/2;
+    const targetY = gameState.player.y - canvas.height/2;
+    
+    camera.x += (targetX - camera.x) * 0.1;
+    camera.y += (targetY - camera.y) * 0.1;
+  
+    camera.x = Math.max(0, Math.min(MAP_WIDTH - canvas.width, camera.x));
+    camera.y = Math.max(0, Math.min(MAP_HEIGHT - canvas.height, camera.y));
+  }
+  
+  function updatePlayer(keys) {
+    let dx = 0;
+    let dy = 0;
+    
+    if (keys.w) dy -= gameState.player.speed;
+    if (keys.s) dy += gameState.player.speed;
+    if (keys.a) dx -= gameState.player.speed;
+    if (keys.d) dx += gameState.player.speed;
+    
+    if (dx !== 0 && dy !== 0) {
+      dx *= Math.SQRT1_2;
+      dy *= Math.SQRT1_2;
+    }
+    
+    const speed = gameState.player.isDashing ? gameState.player.dashSpeed : gameState.player.speed;
+    
+    if (dx !== 0 || dy !== 0) {
+      const newX = gameState.player.x + dx * speed;
+      const newY = gameState.player.y + dy * speed;
+      
+      gameState.player.x = Math.max(0, Math.min(MAP_WIDTH, newX));
+      gameState.player.y = Math.max(0, Math.min(MAP_HEIGHT, newY));
+  
+      if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({
-          type: 'join',
+          type: 'playerUpdate',
           player: {
             id: playerId,
             x: gameState.player.x,
-            y: gameState.player.y
+            y: gameState.player.y,
+            isAttacking: gameState.player.isAttacking,
+            attackAngle: gameState.player.attackAngle,
+            isDashing: gameState.player.isDashing
           }
         }));
-      };
-    
-      ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        switch(data.type) {
-          case 'gameState':
-            otherPlayers = data.players.filter(p => p.id !== playerId);
-            playerCountElement.textContent = "Players Online: ${data.players.length}";
-            break;
-          case 'playerJoined':
-            console.log("Player ${data.playerId} joined");
-            break;
-          case 'playerLeft':
-            console.log("Player ${data.playerId} left");
-            otherPlayers = otherPlayers.filter(p => p.id !== data.playerId);
-            break;
-          case 'playerUpdate':
-            if(data.player.id !== playerId) {
-              const playerIndex = otherPlayers.findIndex(p => p.id === data.player.id);
-              if(playerIndex !== -1) {
-                otherPlayers[playerIndex] = data.player;
-              } else {
-                otherPlayers.push(data.player);
-              }
-            }
-            break;
-        }
-      };
-    
-      ws.onclose = () => {
-        console.log('Disconnected from server');
-        playerCountElement.textContent = 'Offline Mode';
-      };
-    } catch (e) {
-      console.log('WebSocket connection failed, running in single player mode');
-    }
-    
-    function resizeCanvas() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    }
-    resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
-    
-    const playerId = Math.random().toString(36).substr(2, 9);
-    let otherPlayers = [];
-    
-    const spawnPos = getRandomSpawnPosition();
-    const gameState = {
-      player: {
-        id: playerId,
-        x: spawnPos.x,
-        y: spawnPos.y,
-        radius: 20,
-        speed: 3,
-        dashSpeed: 15,
-        isDashing: false,
-        dashCooldown: 2000,
-        dashCooldownTimer: 0,
-        kills: 0,
-        attackAngle: 0,
-        isAttacking: false,
-        attackCooldown: 750,
-        attackCooldownTimer: 0
-      },
-      score: 0
-    };
-    
-    camera.x = spawnPos.x - canvas.width/2;
-    camera.y = spawnPos.y - canvas.height/2;
-    
-    function drawGrid() {
-      const startX = Math.floor(camera.x / GRID_SIZE) * GRID_SIZE;
-      const startY = Math.floor(camera.y / GRID_SIZE) * GRID_SIZE;
-      const endX = startX + canvas.width + GRID_SIZE;
-      const endY = startY + canvas.height + GRID_SIZE;
-      
-      ctx.strokeStyle = '#333333';
-      ctx.lineWidth = 1;
-      
-      for (let x = startX; x < endX; x += GRID_SIZE) {
-        ctx.beginPath();
-        ctx.moveTo(x - camera.x, 0);
-        ctx.lineTo(x - camera.x, canvas.height);
-        ctx.stroke();
-      }
-      
-      for (let y = startY; y < endY; y += GRID_SIZE) {
-        ctx.beginPath();
-        ctx.moveTo(0, y - camera.y);
-        ctx.lineTo(canvas.width, y - camera.y);
-        ctx.stroke();
-      }
-    
-      ctx.strokeStyle = '#ff0000';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(-camera.x, -camera.y, MAP_WIDTH, MAP_HEIGHT);
-    }
-    
-    function drawAttack() {
-      if (gameState.player.isAttacking) {
-        ctx.beginPath();
-        ctx.moveTo(gameState.player.x - camera.x, gameState.player.y - camera.y);
-        ctx.arc(gameState.player.x - camera.x, gameState.player.y - camera.y, gameState.player.radius + 30,
-          gameState.player.attackAngle - Math.PI/4,
-          gameState.player.attackAngle + Math.PI/4);
-        ctx.lineTo(gameState.player.x - camera.x, gameState.player.y - camera.y);
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-        ctx.fill();
-      }
-    } 
-    
-    function updateCamera() {
-      const targetX = gameState.player.x - canvas.width/2;
-      const targetY = gameState.player.y - canvas.height/2;
-      
-      camera.x += (targetX - camera.x) * 0.1;
-      camera.y += (targetY - camera.y) * 0.1;
-    
-      camera.x = Math.max(0, Math.min(MAP_WIDTH - canvas.width, camera.x));
-      camera.y = Math.max(0, Math.min(MAP_HEIGHT - canvas.height, camera.y));
-    }
-    
-    function updatePlayer(keys) {
-      let dx = 0;
-      let dy = 0;
-      
-      if (keys.w) dy -= gameState.player.speed;
-      if (keys.s) dy += gameState.player.speed;
-      if (keys.a) dx -= gameState.player.speed;
-      if (keys.d) dx += gameState.player.speed;
-      
-      if (dx !== 0 && dy !== 0) {
-        dx *= Math.SQRT1_2;
-        dy *= Math.SQRT1_2;
-      }
-      
-      const speed = gameState.player.isDashing ? gameState.player.dashSpeed : gameState.player.speed;
-      
-      if (dx !== 0 || dy !== 0) {
-        const newX = gameState.player.x + dx * speed;
-        const newY = gameState.player.y + dy * speed;
-        
-        gameState.player.x = Math.max(0, Math.min(MAP_WIDTH, newX));
-        gameState.player.y = Math.max(0, Math.min(MAP_HEIGHT, newY));
-    
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({
-            type: 'playerUpdate',
-            player: {
-              id: playerId,
-              x: gameState.player.x,
-              y: gameState.player.y,
-              isAttacking: gameState.player.isAttacking,
-              attackAngle: gameState.player.attackAngle,
-              isDashing: gameState.player.isDashing
-            }
-          }));
-        }
       }
     }
-    
-    const keys = {};
-    window.addEventListener('keydown', (e) => {
-      keys[e.key] = true;
-      if (e.code === 'Space') {
-        dash();
-      } else if (e.code === 'ArrowUp') {
-        attack(-Math.PI/2);
-      } else if (e.code === 'ArrowRight') {
-        attack(0);
-      } else if (e.code === 'ArrowDown') {
-        attack(Math.PI/2);
-      } else if (e.code === 'ArrowLeft') {
-        attack(Math.PI);
-      }
-    });
-    
-    window.addEventListener('keyup', (e) => {
-      keys[e.key] = false;
-    });
-    
-    function attack(angle) {
-      if (!gameState.player.isAttacking && gameState.player.attackCooldownTimer <= 0) {
-        gameState.player.isAttacking = true;
-        gameState.player.attackAngle = angle;
-        gameState.player.attackCooldownTimer = gameState.player.attackCooldown;
-        
-        const attackRange = gameState.player.radius + 50;
+  }
+  
+  const keys = {};
+  window.addEventListener('keydown', (e) => {
+    keys[e.key] = true;
+    if (e.code === 'Space') {
+      dash();
+    } else if (e.code === 'ArrowUp') {
+      attack(-Math.PI/2);
+    } else if (e.code === 'ArrowRight') {
+      attack(0);
+    } else if (e.code === 'ArrowDown') {
+      attack(Math.PI/2);
+    } else if (e.code === 'ArrowLeft') {
+      attack(Math.PI);
+    }
+  });
+  
+  window.addEventListener('keyup', (e) => {
+    keys[e.key] = false;
+  });
+  
+  function attack(angle) {
+    if (!gameState.player.isAttacking && gameState.player.attackCooldownTimer <= 0) {
+      gameState.player.isAttacking = true;
+      gameState.player.attackAngle = angle;
+      gameState.player.attackCooldownTimer = gameState.player.attackCooldown;
+      
+      const attackRange = gameState.player.radius + 50;
 
-        otherPlayers.forEach(otherPlayer => {
-          const dx = otherPlayer.x - gameState.player.x;
-          const dy = otherPlayer.y - gameState.player.y;
-          const distance = Math.sqrt(dx * dx + dy * dy);
-          const enemyAngle = Math.atan2(dy, dx);
+      otherPlayers.forEach(otherPlayer => {
+        const dx = otherPlayer.x - gameState.player.x;
+        const dy = otherPlayer.y - gameState.player.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const enemyAngle = Math.atan2(dy, dx);
+        
+        const angleDiff = Math.abs(enemyAngle - angle);
+        if (distance < attackRange && 
+            (angleDiff < Math.PI/4 || angleDiff > Math.PI * 7/4)) {
+          gameState.score += 100;
+          scoreElement.textContent = "Score: ${gameState.score}";
+          gameState.player.dashCooldownTimer = Math.max(0, gameState.player.dashCooldownTimer - 500);
           
-          const angleDiff = Math.abs(enemyAngle - angle);
-          if (distance < attackRange && 
-              (angleDiff < Math.PI/4 || angleDiff > Math.PI * 7/4)) {
-            gameState.score += 100;
-            scoreElement.textContent = "Score: ${gameState.score}";
-            gameState.player.dashCooldownTimer = Math.max(0, gameState.player.dashCooldownTimer - 500);
-            
-            if (ws && ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({
-                type: 'playerHit',
-                targetId: otherPlayer.id
-              }));
-            }
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+              type: 'playerHit',
+              targetId: otherPlayer.id
+            }));
           }
-        });
-    
-        setTimeout(() => {
-          gameState.player.isAttacking = false;
-        }, 200);
-      }
-    }
-    
-    function dash() {
-      if (!gameState.player.isDashing && gameState.player.dashCooldownTimer <= 0) {
-        gameState.player.isDashing = true;
-        gameState.player.dashCooldownTimer = gameState.player.dashCooldown;
-        
-        setTimeout(() => {
-          gameState.player.isDashing = false;
-        }, 150);
-      }
-    }
-    
-    let lastTime = 0;
-    function gameLoop(timestamp) {
-      const deltaTime = timestamp - lastTime;
-      lastTime = timestamp;
-      
-      ctx.fillStyle = '#1a1a1a';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
-      updateCamera();
-      drawGrid();
-      updatePlayer(keys);
-      
-      if (gameState.player.dashCooldownTimer > 0) {
-        gameState.player.dashCooldownTimer -= deltaTime;
-      }
-      
-      if (gameState.player.attackCooldownTimer > 0) {
-        gameState.player.attackCooldownTimer -= deltaTime;
-      }
-    
-      const cooldownPercent = (gameState.player.dashCooldownTimer / gameState.player.dashCooldown) * 100;
-      dashCooldownFill.style.width = "${100 - cooldownPercent}%;"
-      
-      otherPlayers.forEach(player => {
-        ctx.beginPath();
-        ctx.arc(player.x - camera.x, player.y - camera.y, gameState.player.radius, 0, Math.PI * 2);
-        ctx.fillStyle = '#888888';
-        ctx.fill();
-        
-        if (player.isAttacking) {
-          ctx.beginPath();
-          ctx.moveTo(player.x - camera.x, player.y - camera.y);
-          ctx.arc(player.x - camera.x, player.y - camera.y, gameState.player.radius + 30,
-            player.attackAngle - Math.PI/4,
-            player.attackAngle + Math.PI/4);
-          ctx.lineTo(player.x - camera.x, player.y - camera.y);
-          ctx.fillStyle = 'rgba(136, 136, 136, 0.5)';
-          ctx.fill();
-        }
-        
-        if (player.isDashing) {
-          ctx.beginPath();
-          ctx.arc(player.x - camera.x, player.y - camera.y, gameState.player.radius, 0, Math.PI * 2);
-          ctx.fillStyle = '#666666';
-          ctx.fill();
         }
       });
+  
+      setTimeout(() => {
+        gameState.player.isAttacking = false;
+      }, 200);
+    }
+  }
+  
+  function dash() {
+    if (!gameState.player.isDashing && gameState.player.dashCooldownTimer <= 0) {
+      gameState.player.isDashing = true;
+      gameState.player.dashCooldownTimer = gameState.player.dashCooldown;
       
-      ctx.beginPath();
-      ctx.arc(gameState.player.x - camera.x, gameState.player.y - camera.y, gameState.player.radius, 0, Math.PI * 2);
-      ctx.fillStyle = gameState.player.isDashing ? '#00ff00' : 'white';
-      ctx.fill();
-      
-      drawAttack();
-      
-      requestAnimationFrame(gameLoop);
+      setTimeout(() => {
+        gameState.player.isDashing = false;
+      }, 150);
+    }
+  }
+  
+  let lastTime = 0;
+  function gameLoop(timestamp) {
+    const deltaTime = timestamp - lastTime;
+    lastTime = timestamp;
+    
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    updateCamera();
+    drawGrid();
+    updatePlayer(keys);
+    
+    if (gameState.player.dashCooldownTimer > 0) {
+      gameState.player.dashCooldownTimer -= deltaTime;
     }
     
+    if (gameState.player.attackCooldownTimer > 0) {
+      gameState.player.attackCooldownTimer -= deltaTime;
+    }
+  
+    const cooldownPercent = Math.max(0, gameState.player.dashCooldownTimer / gameState.player.dashCooldown) * 100;
+    dashCooldownFill.style.width = `${100 - cooldownPercent}%`;
+
+    otherPlayers.forEach(player => {
+      ctx.beginPath();
+      ctx.arc(player.x - camera.x, player.y - camera.y, gameState.player.radius, 0, Math.PI * 2);
+      ctx.fillStyle = '#888888';
+      ctx.fill();
+      
+      if (player.isAttacking) {
+        ctx.beginPath();
+        ctx.moveTo(player.x - camera.x, player.y - camera.y);
+        ctx.arc(player.x - camera.x, player.y - camera.y, gameState.player.radius + 30,
+          player.attackAngle - Math.PI/4,
+          player.attackAngle + Math.PI/4);
+        ctx.lineTo(player.x - camera.x, player.y - camera.y);
+        ctx.fillStyle = 'rgba(136, 136, 136, 0.5)';
+        ctx.fill();
+      }
+      
+      if (player.isDashing) {
+        ctx.beginPath();
+        ctx.arc(player.x - camera.x, player.y - camera.y, gameState.player.radius, 0, Math.PI * 2);
+        ctx.fillStyle = '#666666';
+        ctx.fill();
+      }
+    });
+    
+    ctx.beginPath();
+    ctx.arc(gameState.player.x - camera.x, gameState.player.y - camera.y, gameState.player.radius, 0, Math.PI * 2);
+    ctx.fillStyle = gameState.player.isDashing ? '#00ff00' : 'white';
+    ctx.fill();
+    
+    drawAttack();
+    
     requestAnimationFrame(gameLoop);
-    </script>
-    </body></html>
+  }
+  
+  requestAnimationFrame(gameLoop);
+  </script>
+  </body></html>
